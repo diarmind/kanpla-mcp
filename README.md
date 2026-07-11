@@ -27,11 +27,22 @@ It wraps the internal frontend API that the `app.kanpla.io` web app itself uses:
 
 ## Installation
 
+Install from npm:
+
+```bash
+npm install -g kanpla-mcp
+# or run without installing:
+npx kanpla-mcp
+```
+
+Or build from source (uses **pnpm** via Corepack and **Vite**):
+
 ```bash
 git clone https://github.com/<you>/kanpla-mcp.git
 cd kanpla-mcp
-npm install
-npm run build
+corepack enable
+pnpm install
+pnpm build
 ```
 
 ---
@@ -98,7 +109,7 @@ Keep this config file readable only by you — it contains your password.
 ### Dev mode
 
 ```bash
-npm run dev     # tsx watch, rebuilds on change
+pnpm dev     # tsx watch, reloads on change
 ```
 
 ---
@@ -121,14 +132,17 @@ Returns the available menu items for today.
 
 ```jsonc
 {
-  "name": "Butter chicken with rice",
-  "description": "Mild curry, basmati rice, coriander",
-  "allergens": ["milk", "gluten"],
-  "date": "2026-07-11"
+  "name": "Chicken breast",
+  "description": "Served with hummus, roast harissa potatoes & roasted vegetables",
+  "allergens": ["sesame", "milk"],
+  "category": "Main dish",
+  "date": "2026-07-13"
 }
 ```
 
-Empty array means no menu today (weekend / closed / wrong module).
+`category` is the section the dish belongs to (e.g. `Main dish`, `Soup`, `Drinks`).
+
+Empty array means no dishes that day (weekend / closed / wrong module).
 
 ---
 
@@ -174,12 +188,19 @@ Lists the canteens/modules available to your account, so you can find your `modu
 
 3. Load offers
    POST <BASE>/api/internal/load/frontend
-   headers: authorization: Bearer <idToken>, kanpla-app-env: PROD, kanpla-auth-provider: GAuth
-   { userId: localId, url: "app", language }  ->  offers[moduleId].items
+   headers: authorization: Bearer <idToken>, kanpla-app-env: PROD,
+            kanpla-auth-provider: GAuth, origin: <BASE>   # origin is required
+   { userId: localId, url: "app", language }  ->  offers[moduleId].items + modules[]
 
-4. Filter items where dates{} has a unix-second timestamp inside the target day
-   and available === true; expose menu.{name, description, allergens}.
+4. For each item (a category) look at item.dates{<unixSeconds>} whose key falls in
+   the target UTC day, keep entries with available !== false and a populated
+   .menu, then expose { name, description, allergens, category, date } — where
+   allergens are the true-valued top-level keys of menu.allergens.
 ```
+
+> Module display names come from the top-level `modules[]` list; `offers` is
+> keyed by `moduleId` and carries no name. `origin` must be sent or the backend
+> responds `500 {"message":"Invalid URL"}`.
 
 The idToken is cached in memory and refreshed automatically; nothing is persisted to disk.
 
@@ -193,20 +214,23 @@ kanpla-mcp/
 │  ├─ index.ts          # MCP server entry (stdio transport, tool registration)
 │  ├─ kanpla.ts         # Kanpla client: login, token cache, load/frontend
 │  ├─ auth.ts           # Firebase signInWithPassword + securetoken refresh
-│  └─ menu.ts           # date filtering, item -> menu mapping
-├─ dist/                # compiled output (npm run build)
+│  ├─ menu.ts           # date filtering, item -> menu mapping
+│  └─ config.ts         # env parsing/validation (zod)
+├─ dist/                # bundled output (pnpm build)
 ├─ package.json
 ├─ tsconfig.json
+├─ vite.config.ts
 └─ README.md
 ```
 
 ## Scripts
 
-| Command         | Description                          |
-| --------------- | ------------------------------------ |
-| `npm run build` | Compile TypeScript to `dist/`.       |
-| `npm run dev`   | Watch mode via `tsx`.                |
-| `npm start`     | Run the built server (`dist/index.js`). |
+| Command          | Description                             |
+| ---------------- | --------------------------------------- |
+| `pnpm build`     | Bundle to `dist/` with Vite.            |
+| `pnpm dev`       | Watch mode via `tsx`.                   |
+| `pnpm typecheck` | Type-check with `tsc --noEmit`.         |
+| `pnpm start`     | Run the built server (`dist/index.js`). |
 
 ---
 

@@ -1,0 +1,52 @@
+{
+  "name": "kanpla-mcp",
+  "version": "0.1.0",
+  "description": "Unofficial read-only Model Context Protocol server that reads your Kanpla canteen menu.",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "kanpla",
+    "canteen",
+    "menu",
+    "ai",
+    "llm"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "kanpla-mcp": "dist/index.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "build": "vite build",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm run typecheck && pnpm run build"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "dotenv": "^17.0.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vite": "^8.0.0"
+  }
+}
