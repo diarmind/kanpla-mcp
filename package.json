@@ -1,5 +1,5 @@
 {
-  "name": "kanpla-mcp",
+  "name": "@diarmind/kanpla-mcp",
   "version": "0.1.0",
   "description": "Unofficial read-only Model Context Protocol server that reads your Kanpla canteen menu.",
   "keywords": [

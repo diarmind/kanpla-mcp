@@ -30,10 +30,12 @@ It wraps the internal frontend API that the `app.kanpla.io` web app itself uses:
 Install from npm:
 
 ```bash
-npm install -g kanpla-mcp
+npm install -g @diarmind/kanpla-mcp
 # or run without installing:
-npx kanpla-mcp
+npx @diarmind/kanpla-mcp
 ```
+
+(The installed command is `kanpla-mcp`.)
 
 Or build from source (uses **pnpm** via Corepack and **Vite**):
 
