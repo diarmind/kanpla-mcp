@@ -12,6 +12,15 @@
     "llm"
   ],
   "license": "MIT",
+  "author": "Dmitrii Poponkin (https://github.com/diarmind)",
+  "homepage": "https://github.com/diarmind/kanpla-mcp#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/diarmind/kanpla-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/diarmind/kanpla-mcp/issues"
+  },
   "type": "module",
   "bin": {
     "kanpla-mcp": "dist/index.js"

@@ -38,7 +38,7 @@ npx kanpla-mcp
 Or build from source (uses **pnpm** via Corepack and **Vite**):
 
 ```bash
-git clone https://github.com/<you>/kanpla-mcp.git
+git clone https://github.com/diarmind/kanpla-mcp.git
 cd kanpla-mcp
 corepack enable
 pnpm install
