@@ -13,6 +13,7 @@ It wraps the internal frontend API that the `app.kanpla.io` web app itself uses:
 - 🔐 Credentials and Firebase key live in server env, never in the model's context.
 - ♻️ Token is cached and auto-refreshed (Firebase idTokens expire ~1h) — the agent never handles tokens.
 - 📅 Menu for today or any specific date, with allergens.
+- 🥗 Portion sizes and nutrition facts (kcal, protein, fat, carbs…) per 100 g and per portion.
 - 🚫 **Read-only by design.** No ordering, no payments, no account mutations.
 
 ---
@@ -134,15 +135,22 @@ Returns the available menu items for today.
 
 ```jsonc
 {
-  "name": "Chicken breast",
-  "description": "Served with hummus, roast harissa potatoes & roasted vegetables",
-  "allergens": ["sesame", "milk"],
+  "name": "Fried calamares",
+  "description": "With sweet potato fries, mini caesar salad & tartar sauce",
+  "allergens": ["molluscs", "wheat", "milk", "sulphurdioxide"],
   "category": "Main dish",
-  "date": "2026-07-13"
+  "date": "2026-10-16",
+  "portionGrams": 400,
+  "nutrition": {
+    "per100g":    { "kcal": 175, "protein": 5.9,  "fat": 10.4, "saturatedFat": null, "carbs": 14.6, "sugar": null, "fiber": 1.3, "salt": 0.89 },
+    "perPortion": { "kcal": 700, "protein": 23.6, "fat": 41.6, "saturatedFat": null, "carbs": 58.4, "sugar": null, "fiber": 5.2, "salt": 3.6 }
+  }
 }
 ```
 
-`category` is the section the dish belongs to (e.g. `Main dish`, `Soup`, `Drinks`).
+- `category` — the section the dish belongs to (e.g. `Main dish`, `Soup`, `Drinks`).
+- `portionGrams` — portion size in grams, or `null` if unknown.
+- `nutrition` — energy in kcal, everything else in grams; individual values are `null` where the canteen didn't publish them. `perPortion` is `per100g` scaled to `portionGrams` (`null` when the portion is unknown). The whole `nutrition` is `null` for dishes without nutrition facts (often drinks).
 
 Empty array means no dishes that day (weekend / closed / wrong module).
 
@@ -198,6 +206,10 @@ Lists the canteens/modules available to your account, so you can find your `modu
    the target UTC day, keep entries with available !== false and a populated
    .menu, then expose { name, description, allergens, category, date } — where
    allergens are the true-valued top-level keys of menu.allergens.
+
+5. Nutrition comes from menu.nutrition (servingBasis "100g", energy in kcal);
+   portion = menu.nutrition.servingSize, falling back to the category item's
+   nutrition.servingSize. perPortion = per100g × portion / 100.
 ```
 
 > Module display names come from the top-level `modules[]` list; `offers` is

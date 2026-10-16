@@ -8,13 +8,19 @@
  *
  *     item.dates[ts] = {
  *       available: boolean,
- *       menu?: { name, description?, allergens?: { [code]: boolean }, labels? }
+ *       menu?: { name, description?, allergens?: { [code]: boolean },
+ *                nutrition?: { servingSize, servingBasis, energy, protein, … } }
  *     }
  *
  *   `menu` is populated only on days a dish is assigned (empty on weekends /
  *   closed days). Allergen codes are keys whose value is `true`; nested codes
  *   like "wheat:rye" are sub-classifications we drop, keeping the top-level ones.
  *   Timestamp keys are UTC midnight for the calendar day.
+ *
+ *   `menu.nutrition` holds nutrients per `servingBasis` (always "100g" in
+ *   practice; `energy` is kcal) plus `servingSize` — the portion in grams. The
+ *   category item may carry its own `nutrition.servingSize`, used as a fallback
+ *   portion when the dish has none.
  */
 
 export interface MenuItem {
@@ -28,6 +34,44 @@ export interface MenuItem {
   category: string;
   /** ISO date, YYYY-MM-DD. */
   date: string;
+  /** Portion (serving) size in grams, if known. */
+  portionGrams: number | null;
+  /** Nutrition facts, or null when the canteen published none for the dish. */
+  nutrition: Nutrition | null;
+}
+
+/** Nutrient amounts; null where the canteen didn't provide a value. */
+export interface Macros {
+  /** Energy, kcal. */
+  kcal: number | null;
+  /** Grams. */
+  protein: number | null;
+  fat: number | null;
+  saturatedFat: number | null;
+  carbs: number | null;
+  sugar: number | null;
+  fiber: number | null;
+  salt: number | null;
+}
+
+export interface Nutrition {
+  per100g: Macros;
+  /** `per100g` scaled to the portion; null when the portion size is unknown. */
+  perPortion: Macros | null;
+}
+
+/** Raw `nutrition` object from the API. */
+interface RawNutrition {
+  servingSize?: unknown;
+  servingBasis?: unknown;
+  energy?: unknown;
+  protein?: unknown;
+  fat?: unknown;
+  fatSaturated?: unknown;
+  carbohydrates?: unknown;
+  sugar?: unknown;
+  fibre?: unknown;
+  salt?: unknown;
 }
 
 /** The per-day dish payload nested under an item's `dates` map. */
@@ -35,6 +79,7 @@ export interface RawMenu {
   name?: unknown;
   description?: unknown;
   allergens?: unknown;
+  nutrition?: unknown;
 }
 
 /** One day's entry inside `item.dates`. */
@@ -48,6 +93,7 @@ export interface RawItem {
   name?: unknown;
   description?: unknown;
   dates?: unknown;
+  nutrition?: unknown;
 }
 
 /** One canteen/module entry inside the `offers` map. */
@@ -85,6 +131,57 @@ function asString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
+function asNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function asNutrition(value: unknown): RawNutrition | undefined {
+  return value && typeof value === "object" ? (value as RawNutrition) : undefined;
+}
+
+const round1 = (x: number) => Math.round(x * 10) / 10;
+
+function scaleMacros(m: Macros, factor: number): Macros {
+  const scale = (v: number | null, round: (x: number) => number) =>
+    v === null ? null : round(v * factor);
+  return {
+    kcal: scale(m.kcal, Math.round),
+    protein: scale(m.protein, round1),
+    fat: scale(m.fat, round1),
+    saturatedFat: scale(m.saturatedFat, round1),
+    carbs: scale(m.carbs, round1),
+    sugar: scale(m.sugar, round1),
+    fiber: scale(m.fiber, round1),
+    salt: scale(m.salt, round1),
+  };
+}
+
+function normalizeNutrition(
+  raw: RawNutrition | undefined,
+  portionGrams: number | null,
+): Nutrition | null {
+  if (!raw) return null;
+  // Only per-100g values have been observed; any other basis can't be scaled safely.
+  if (raw.servingBasis !== undefined && raw.servingBasis !== "100g") return null;
+
+  const per100g: Macros = {
+    kcal: asNumber(raw.energy),
+    protein: asNumber(raw.protein),
+    fat: asNumber(raw.fat),
+    saturatedFat: asNumber(raw.fatSaturated),
+    carbs: asNumber(raw.carbohydrates),
+    sugar: asNumber(raw.sugar),
+    fiber: asNumber(raw.fibre),
+    salt: asNumber(raw.salt),
+  };
+  if (Object.values(per100g).every((v) => v === null)) return null;
+
+  return {
+    per100g,
+    perPortion: portionGrams ? scaleMacros(per100g, portionGrams / 100) : null,
+  };
+}
+
 /**
  * Select available dishes for `isoDate` across a module's items and map them to
  * the public MenuItem shape. Items with no dish assigned that day are skipped.
@@ -95,6 +192,7 @@ export function itemsForDate(items: RawItem[], isoDate: string): MenuItem[] {
 
   for (const item of items) {
     const category = asString(item.name);
+    const categoryPortion = asNumber(asNutrition(item.nutrition)?.servingSize);
     const dates = item.dates;
     if (!dates || typeof dates !== "object") continue;
 
@@ -109,12 +207,17 @@ export function itemsForDate(items: RawItem[], isoDate: string): MenuItem[] {
       const name = asString(menu?.name);
       if (!name) continue; // no dish assigned that day (weekend / closed)
 
+      const nutrition = asNutrition(menu?.nutrition);
+      const portionGrams = asNumber(nutrition?.servingSize) ?? categoryPortion;
+
       result.push({
         name,
         description: asString(menu?.description),
         allergens: normalizeAllergens(menu?.allergens),
         category,
         date: isoDate,
+        portionGrams,
+        nutrition: normalizeNutrition(nutrition, portionGrams),
       });
     }
   }

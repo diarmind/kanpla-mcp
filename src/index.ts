@@ -1,5 +1,7 @@
 import "dotenv/config";
 
+import { createRequire } from "node:module";
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -35,16 +37,25 @@ function fail(error: unknown): ToolResult {
   return { content: [{ type: "text", text: message }], isError: true };
 }
 
+const MENU_ITEM_DOC =
+  "Each item has name, description, allergens, category, portionGrams (portion size in grams) " +
+  "and nutrition: { per100g, perPortion } with kcal, protein, fat, saturatedFat, carbs, sugar, " +
+  "fiber and salt (grams). nutrition is null when the canteen published none; perPortion is null " +
+  "when the portion size is unknown.";
+
+// package.json sits one level above both src/ (dev) and dist/ (published).
+const { version } = createRequire(import.meta.url)("../package.json") as { version: string };
+
 const server = new McpServer({
   name: "kanpla-mcp",
-  version: "0.1.0",
+  version,
 });
 
 server.registerTool(
   "get_today_menu",
   {
     title: "Get today's menu",
-    description: "Returns the available Kanpla menu items for today.",
+    description: `Returns the available Kanpla menu items for today. ${MENU_ITEM_DOC}`,
     inputSchema: {
       moduleId: z
         .string()
@@ -65,7 +76,7 @@ server.registerTool(
   "get_menu_for_date",
   {
     title: "Get menu for a date",
-    description: "Returns the available Kanpla menu items for a specific date.",
+    description: `Returns the available Kanpla menu items for a specific date. ${MENU_ITEM_DOC}`,
     inputSchema: {
       date: z
         .string()
